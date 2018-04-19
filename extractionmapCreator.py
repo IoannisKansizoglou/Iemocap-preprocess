@@ -372,7 +372,7 @@ def main():
 			
 		
 	# Execution time
-	print( 'Execution time of extractionmapCreator1.py [sec]: '+ str(time.time() - t0) )
+	print( 'Execution time of extractionmapCreator.py [sec]: '+ str(time.time() - t0) )
 
 
 # Control runtime
