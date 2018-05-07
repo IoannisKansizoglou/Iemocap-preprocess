@@ -30,7 +30,7 @@ def multi_cnn_model(features, labels, mode):
     print(labels)
     ### FACE SIDE ###
     # First input layer of multi-CNN
-    input_layer_1 = tf.reshape( features['faces'], [-1, 96, 96, 3])
+    input_layer_1 = tf.reshape( features['faces'], [-1, img_width, img_height, 3])
     # Convolutional layer #1.1
     conv1_1 = tf.layers.conv2d( inputs=input_layer_1, filters=32, kernel_size=[3,3], kernel_initializer=tf.contrib.layers.xavier_initializer(), padding='same', activation=tf.nn.relu )
     # Batch-normalization layer 1.1
@@ -58,7 +58,7 @@ def multi_cnn_model(features, labels, mode):
     
     ### SPECTROGRAM SIDE ###
     # Second input layer of multi-CNN
-    input_layer_2 = tf.reshape( features['spectrograms'], [-1, 96, 96, 1])
+    input_layer_2 = tf.reshape( features['spectrograms'], [-1, img_width, img_height, 1])
     # Convolutional layer #2.1
     conv2_1 = tf.layers.conv2d( inputs=input_layer_2, filters=32, kernel_size=[3,3], kernel_initializer=tf.contrib.layers.xavier_initializer(), padding='same', activation=tf.nn.relu )
     # Batch-normalization layer 2.1
@@ -137,7 +137,7 @@ def _parse_function( facePATH, spectrogramPATH, label):
     face_string = tf.read_file(facePATH)
     face_decoded = tf.image.decode_jpeg(face_string, channels=3)
     face_decoded = tf.to_float(face_decoded)
-    face_decoded = tf.reshape(face_decoded,[img_height,img_width,3])
+    face_decoded = tf.reshape(face_decoded,[img_width,img_height,3])
     face_decoded = tf.image.per_image_standardization(face_decoded)
     
     spectrogram_string = tf.read_file(spectrogramPATH)
@@ -145,7 +145,7 @@ def _parse_function( facePATH, spectrogramPATH, label):
     spectrogram_decoded = spectrogram_decoded[64:]
     spectrogram_decoded = tf.to_float(spectrogram_decoded)
     spectrogram_decoded = tf.divide(spectrogram_decoded, 10000)
-    spectrogram_decoded = tf.reshape(spectrogram_decoded,[img_height,img_width,1])
+    spectrogram_decoded = tf.reshape(spectrogram_decoded,[img_width,img_height,1])
     
     #label = tf.to_float(label)
     print(face_decoded)
