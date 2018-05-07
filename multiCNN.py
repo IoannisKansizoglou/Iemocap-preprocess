@@ -9,25 +9,27 @@ import time
 ########################## PARAMETERS ###########################
 
 t0 = time.time()    # Starting time
-dense_units = 2048  # Dense layers' units
-dropout_rate = 0  # Dropout rate: percentage of neurons to drop
-n_classes = 8       # Output's units
-eta = 0.001         # Learning rate
-n_epochs = 1        # Number of epochs
-batches_size = 100  # Size of mini-batches
 img_height = 96     # Height of spectrograms
 img_width = 96      # Width of spectrograms
+dense_units = 2048  # Dense layers' units
+n_classes = 8       # Output's units
+n_epochs = 4        # Number of epochs
+batch_size = 100  # Size of mini-batches
+dropout_rate = 0    # Dropout rate: percentage of neurons to drop
+eta = 0.0005         # Learning rate
+multiCNN_dir = '/home/gryphonlab/Ioannis/Works/IEMOCAP/Core/multiCNN_eta.0005'  # Directory to store current multiCNN model
+
+tf.logging.set_verbosity(tf.logging.INFO)   # Output properties (terminal)
 
 ########################### CNN MODEL ###########################
 
-tf.logging.set_verbosity(tf.logging.INFO)
 
-def multi_cnn_model(features, labels, mode):
-
+def multiCNN_model(features, labels, mode):
 
     print(features['faces'])
     print(features['spectrograms'])
     print(labels)
+
     ### FACE SIDE ###
     # First input layer of multi-CNN
     input_layer_1 = tf.reshape( features['faces'], [-1, img_width, img_height, 3])
@@ -100,6 +102,7 @@ def multi_cnn_model(features, labels, mode):
     ### LOGITS LAYER ###
     logits = tf.layers.dense( inputs=dropout_2, units=n_classes )
 
+    ### METHODS FOR TRAIN/EVAL/PRED ###
     # Generate predictions for PREDICT and EVAL modes
     predictions = {
         'classes': tf.argmax( input=logits, axis=1 ),
@@ -112,10 +115,13 @@ def multi_cnn_model(features, labels, mode):
         return tf.estimator.EstimatorSpec( mode=mode, predictions=predictions)
 
     # Calculate loss for TRAIN and EVAL modes
-    print(logits)
     onehot_labels = tf.one_hot( indices=tf.cast(labels, tf.int32), depth=n_classes )
-    print(onehot_labels)
     loss = tf.losses.softmax_cross_entropy( onehot_labels=onehot_labels, logits=logits )
+
+    # Calculate accuracy for TRAIN and EVAL modes
+    accuracy = tf.metrics.accuracy( labels=labels, predictions=predictions['classes'] )
+    metrics = { 'accuracy': accuracy }
+    tf.summary.scalar('accuracy', accuracy[1])
 
     # Configure the Training mode for TRAIN mode
     if mode == tf.estimator.ModeKeys.TRAIN:
@@ -123,59 +129,69 @@ def multi_cnn_model(features, labels, mode):
         train_op = optimizer.minimize( loss=loss, global_step=tf.train.get_global_step() )
         return tf.estimator.EstimatorSpec( mode=mode, loss=loss, train_op=train_op )
 
-    # Add ealuation metrics for EVAL mode
-    eval_metric_ops = {
-        'accuracy': tf.metrics.accuracy( labels=labels, predictions=predictions['classes'] )
-    }
-    return tf.estimator.EstimatorSpec( mode=mode, loss=loss, eval_metric_ops=eval_metric_ops)
+    # Return evaluation metrics for EVAL mode
+    return tf.estimator.EstimatorSpec( mode=mode, loss=loss, eval_metric_ops=metrics)
 
 
 ########################### FUNCTIONS ###########################
 
 
+# Function to transpose Dataset loading images and spectrograms
 def _parse_function( facePATH, spectrogramPATH, label):
+    
+    # Load and preprocess faces
     face_string = tf.read_file(facePATH)
     face_decoded = tf.image.decode_jpeg(face_string, channels=3)
     face_decoded = tf.to_float(face_decoded)
     face_decoded = tf.reshape(face_decoded,[img_width,img_height,3])
     face_decoded = tf.image.per_image_standardization(face_decoded)
     
+    # Load and preprocess spectrograms
     spectrogram_string = tf.read_file(spectrogramPATH)
     spectrogram_decoded = tf.decode_raw(spectrogram_string,tf.uint16)
     spectrogram_decoded = spectrogram_decoded[64:]
     spectrogram_decoded = tf.to_float(spectrogram_decoded)
-    spectrogram_decoded = tf.divide(spectrogram_decoded, 10000)
+    spectrogram_decoded = tf.divide(spectrogram_decoded, 50000)
     spectrogram_decoded = tf.reshape(spectrogram_decoded,[img_width,img_height,1])
     
     #label = tf.to_float(label)
     print(face_decoded)
     print(spectrogram_decoded)
+
+    # Return Dataset's elements
     return face_decoded, spectrogram_decoded, label
 
 
+# Function to handle inputs of Estimator for TRAIN mode
 def train_input_fn():
 
     # Load train data
     df = pd.read_csv('/home/gryphonlab/Ioannis/Works/IEMOCAP/Core/training_data.csv')
-    # Faces for training (numpy array)
+    # Faces for training (numpy array, dtype=string)
     train_faces = np.array(df['train_faces'])
-    # Spectrograms for training (numpy array)
+    # Spectrograms for training (numpy array, dtype=string)
     train_spectrograms = np.array(df['train_spectrograms'])
+    # Labels for training (numpy array, dtype=int32)
     train_labels = np.array(df['train_labels']).astype(np.int32)
-
-    #faces_placeholder = tf.placeholder(train_faces.dtype, train_faces.shape)
-    #spectrograms_placeholder = tf.placeholder(train_spectrograms.dtype, train_spectrograms.shape)
-    #labels_placeholder = tf.placeholder(train_labels.dtype, train_labels.shape)
     
+    # Create tensorflow Dataset unit
     training_dataset = tf.data.Dataset.from_tensor_slices((train_faces, train_spectrograms, train_labels))
-    training_dataset = training_dataset.map(_parse_function)
-    batched_dataset = training_dataset.batch(batches_size)
+    # Transpose Dataset using map-function
+    training_dataset = training_dataset.repeat(n_epochs).map(_parse_function)
+    # Shuffle & batch dataset (Dataset/36)
+    batched_dataset = training_dataset.shuffle(12089).batch(batch_size)
     
-    iterator = batched_dataset.make_one_shot_iterator()
+    # Create Iterator
+    iterator = batched_dataset.make_initializable_iterator()
+    tf.add_to_collection(tf.GraphKeys.TABLE_INITIALIZERS, iterator.initializer)
     faces, spectrograms, labels = iterator.get_next()
-    #training_init_op = iterator.make_initializer(training_dataset)
+    
+    #iterator = batched_dataset.make_one_shot_iterator()
+    #faces, spectrograms, labels = iterator.get_next()
+    
 
-    features_dict = { 'faces': faces, 'spectrograms': spectrograms}
+    # Create dictionary of features including images & spectrograms
+    features_dict = { 'faces': faces, 'spectrograms': spectrograms }
 
     return features_dict, labels
 
@@ -187,15 +203,12 @@ def main(unused_argv):
     
     
     # Create the Estimator
-    multi_cnn_classifier = tf.estimator.Estimator( model_fn=multi_cnn_model, model_dir='/home/gryphonlab/Ioannis/Works/IEMOCAP/Core/multi_cnn_eta.001' )
+    multi_cnn_classifier = tf.estimator.Estimator( model_fn=multiCNN_model, model_dir=multiCNN_dir )
     # Set up logging for predictions
     tensors_to_log = { 'probabilities': 'softmax_tensor' }
     logging_hook = tf.train.LoggingTensorHook( tensors=tensors_to_log, every_n_iter=50 )
     
     # TRAIN the model
-    #train_input_fn = tf.estimator.inputs.numpy_input_fn(
-    #    x={'x1': train_faces, 'x2': train_spectrograms}, y=train_labels, batch_size=batches_size, num_epochs=1, shuffle=True
-    #)
     multi_cnn_classifier.train( input_fn=train_input_fn, steps=20000, hooks=[logging_hook])
 
     # EVAL the model
@@ -206,7 +219,6 @@ def main(unused_argv):
     #print(eval_results)
 
     print('Execution time: '+ str(time.time() - t0))
-
 
 
 if __name__ == '__main__':
