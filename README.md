@@ -22,7 +22,7 @@ Multimodal preprocessing on IEMOCAP dataset
     
 - multiCNN.py
 
-    Includes: data import methods, multi_CNN_model, train/eval/pred methods, model save
+    Includes: data import methods, multiCNN model, train/eval/pred methods, model save
 
 # First upload 19.04.18
 
