@@ -10,11 +10,11 @@ import pandas as pd
 # Starting time
 t0 = time.time()
 # Threshold for keeping a center movement per frame
-c_threshold = 100
+c_threshold = 40
 # Threshold for keeping a center vs other
 d_threshold = 100000
 # Values for first cropping
-y1, y2, x1, x2, x3, x4 = (150, 300, 80, 300, 430, 650)
+y1, y2, y3, y4, x1, x2, x3, x4 = (130, 230, 140, 240, 120, 240, 500, 630)
 # Final size of cropped image
 width, height = (96, 96)
 
@@ -41,7 +41,7 @@ def crop_image(image, left_precenter, right_precenter, sheet, speaker):
     # First crop of image to simplify face-detection
     img = image.copy()
     img1 = img[y1:y2, x1:x2]
-    img2 = img[y1:y2, x3:x4]
+    img2 = img[y3:y4, x3:x4]
     gray1 = cv2.cvtColor(img1, cv2.COLOR_BGR2GRAY)
     gray2 = cv2.cvtColor(img2, cv2.COLOR_BGR2GRAY)
     # Detect faces (-eyes) in the image
@@ -59,7 +59,7 @@ def crop_image(image, left_precenter, right_precenter, sheet, speaker):
     cv2.circle(img1,tuple(left_center),2,(0,255,0),2)
     if left_index >= 0:
         x, y, w, h = left_faces[left_index]
-        cv2.rectangle(img1,(x,y),(x+w,y+h),(255,0,0),2)    
+        cv2.rectangle(img1,(x,y),(x+w,y+h),(255,0,0),2)
     cv2.rectangle(img1,(left_a,left_b),(left_a+width,left_b+height),(0,0,255),2)
     # Calculate right crop rectangle
     print(right_center)
@@ -69,7 +69,7 @@ def crop_image(image, left_precenter, right_precenter, sheet, speaker):
     cv2.circle(img2,tuple(right_center),2,(0,255,0),2)
     if right_index >= 0:
         x, y, w, h = right_faces[right_index]
-        cv2.rectangle(img2,(x,y),(x+w,y+h),(255,0,0),2)    
+        cv2.rectangle(img2,(x,y),(x+w,y+h),(255,0,0),2)
     cv2.rectangle(img2,(right_a,right_b),(right_a+width,right_b+height),(0,0,255),2)
     # Concatenate left and right images
     img = np.concatenate((img1, img2), axis=1)
@@ -88,8 +88,9 @@ def crop_image(image, left_precenter, right_precenter, sheet, speaker):
 
         # Crop image
         right_a += x3
-        right_b += y1
+        right_b += y3
         image = image[right_b:right_b+width, right_a:right_a+height]
+        #image = image[int((y3+y4)/2)-int(width/2):int((y3+y4)/2)-int(width/2)+width, int((x3+x4)/2)-int(height/2):int((x3+x4)/2)-int(height/2)+height]
         
     else:
 
@@ -183,10 +184,13 @@ def select_window(faces, precenter):
         #print(np.linalg.norm(s1-s2))
 
     if precenter == [0, 0]:
-        x, y, w, h = faces[0]
-        xc = int(round((2*x+w)/2))
-        yc = int(round((2*y+h)/2))
-        center = [xc, yc]
+        if np.shape(faces)[0]>0:
+            x, y, w, h = faces[0]
+            xc = int(round((2*x+w)/2))
+            yc = int(round((2*y+h)/2))
+            center = [xc, yc]
+        else:
+            center = [int((x2-x1)/2), int((y2-y1)/2)]
 
     return center, index
 
@@ -204,7 +208,7 @@ def main():
     # For printing effect
     counter = 1
 
-    for ses in range(1,6):
+    for ses in range(1,2):
 
         # CHANGE THIS if dataset IEMOCAP is moved
         sessionPATH = '/media/gryphonlab/8847-9F6F/Ioannis/IEMOCAP_full_release/Session'+str(ses)+'/dialog/avi/DivX'
@@ -223,7 +227,7 @@ def main():
         left_precenter = [0, 0]
         right_precenter = [0, 0]
 
-        for vid in range(3,len(videos)):
+        for vid in range(28,29):#len(videos)):
 
             # Current video path
             videoPATH = sessionPATH + '/' + str(videos[vid])
@@ -251,15 +255,18 @@ def main():
 
                 while success:
 
-                    # Find current speaker
-                    currentSpeaker, currentRow = find_speaker(currentFrame, currentRow, xl, sheet)
-                    # Crop frame
-                    frame, left_precenter, right_precenter = crop_image(frame, left_precenter, right_precenter, sheet, currentSpeaker)
-                    # Check that current frame refers to speaker
-                    if np.shape(frame)[0]>2:
-                        # Save current cropped image in .jpg file
-                        name = str(image_videoPATH) + '/frame' + str(currentFrame) + '.jpg'
-                        cv2.imwrite(name, frame)
+                    if currentFrame > 9550 and currentFrame < 10074:
+
+                        # Find current speaker
+                        currentSpeaker, currentRow = find_speaker(currentFrame, currentRow, xl, sheet)
+                        # Crop frame
+                        frame, left_precenter, right_precenter = crop_image(frame, left_precenter, right_precenter, sheet, currentSpeaker)
+                        # Check that current frame refers to speaker
+                        if np.shape(frame)[0]>2:
+                            # Save current cropped image in .jpg file
+                            name = str(image_videoPATH) + '/frame' + str(currentFrame) + '.jpg'
+                            cv2.imwrite(name, frame)
+
                     # To stop duplicate images
                     print('Current Frame: Frame'+str(currentFrame))
                     currentFrame += 1

@@ -13,7 +13,7 @@ import pandas as pd
 # Starting time
 t0 = time.time()
 # Number of Sessions
-n_sessions = 4
+n_sessions = 5
 # Video's frame per second
 video_rate = 30
 # Window size for the FFT
@@ -135,7 +135,7 @@ def main():
     create_folder(spectrogramPATH)
 
     # Number of sessions to iterate
-    for ses in range(2,n_sessions+2):
+    for ses in range(1,n_sessions+1):
         
         # Path to session's excel file
         extractionmapPATH = '/home/gryphonlab/Ioannis/Works/IEMOCAP/Core/cut_extractionmap'+str(ses)+'.xlsx'
@@ -191,7 +191,7 @@ def main():
                         #np.savetxt(spectrogramPATH+'frame'+str(frame)+'.txt', wav_spectrogram, fmt='%1.5f')
                         # Save to binary
                         wav_spectrogram *= -10000
-                        np.save(spectrogramPATH+'frame'+str(frame), wav_spectrogram.astype('uint16'))
+                        np.save(spectrogramPATH+'frame'+str(frame),wav_spectrogram.astype('uint16'))
                         #wav_spectrogram.astype('uint16').tofile(spectrogramPATH+'frame'+str(frame)+'.txt')
                         #df = pd.DataFrame(wav_spectrogram).astype('float16')
                         #df.to_excel(spectrogramPATH+'frame'+str(frame)+'.xlsx')
