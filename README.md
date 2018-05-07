@@ -1,7 +1,30 @@
 # iemocap_preprocess
 Multimodal preprocessing on IEMOCAP dataset
 
-First upload 19.04.18
+# Second upload 07.05.18
+
+- extractionmapCreator.py
+
+    UNCHANGED
+    
+- extractSpectrogram.py
+
+    UNCHANGED
+  
+- extractFace.py
+
+    UNCHANGED
+    
+- createInputs.py
+    
+    Produce training_data.csv, evaluation_data.csv and prediction_data.csv
+    input maps for multiCNN
+    
+- multiCNN.py
+
+    Includes: data import methods, multi_CNN_model, train/eval/pred methods, model save
+
+# First upload 19.04.18
 
 - extractionmapCreator.py 
     
@@ -21,7 +44,7 @@ First upload 19.04.18
     
  - extractFace.py
  
-    Produce specified -from extractionmaps- face-images no .jpg files
+    Produce specified -from extractionmaps- face-images on .jpg files
     
     execution time: --
     
