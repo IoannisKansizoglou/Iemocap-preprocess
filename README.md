@@ -5,7 +5,7 @@ Multimodal preprocessing on IEMOCAP dataset
 
 - multiCNN.py
 
-    Added: EVAL mode
+    Added: EVAL mode (DOESN'T TERMINATE!)
 
 # Upload_2: 07.05.18
 
