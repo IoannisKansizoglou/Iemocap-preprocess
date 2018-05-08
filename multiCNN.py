@@ -8,16 +8,17 @@ import time
 
 ########################## PARAMETERS ###########################
 
-t0 = time.time()    # Starting time
-img_height = 96     # Height of spectrograms
-img_width = 96      # Width of spectrograms
-dense_units = 2048  # Dense layers' units
-n_classes = 8       # Output's units
-n_epochs = 4        # Number of epochs
-batch_size = 100  # Size of mini-batches
-dropout_rate = 0    # Dropout rate: percentage of neurons to drop
-eta = 0.0005         # Learning rate
-multiCNN_dir = '/home/gryphonlab/Ioannis/Works/IEMOCAP/Core/multiCNN_eta.0005'  # Directory to store current multiCNN model
+t0 = time.time()        # Starting time
+img_height = 96         # Height of spectrograms
+img_width = 96          # Width of spectrograms
+shuffle_buffer = 12089  # Number of dataset-elements stored in buffer before shuffing (Dataset/36)
+dense_units = 2048      # Dense layers' units
+n_classes = 8           # Output's units
+n_epochs = 4            # Number of epochs
+batch_size = 100        # Size of mini-batches
+dropout_rate = 0        # Dropout rate: percentage of neurons to drop
+eta = 0.0001            # Learning rate
+multiCNN_dir = '/home/gryphonlab/Ioannis/Works/IEMOCAP/Core/multiCNN_eta.0001'  # Directory to store current multiCNN model
 
 tf.logging.set_verbosity(tf.logging.INFO)   # Output properties (terminal)
 
@@ -162,7 +163,7 @@ def _parse_function( facePATH, spectrogramPATH, label):
     return face_decoded, spectrogram_decoded, label
 
 
-# Function to handle inputs of Estimator for TRAIN mode
+# Input pipeline of Estimator for TRAIN mode
 def train_input_fn():
 
     # Load train data
@@ -178,8 +179,8 @@ def train_input_fn():
     training_dataset = tf.data.Dataset.from_tensor_slices((train_faces, train_spectrograms, train_labels))
     # Transpose Dataset using map-function
     training_dataset = training_dataset.repeat(n_epochs).map(_parse_function)
-    # Shuffle & batch dataset (Dataset/36)
-    batched_dataset = training_dataset.shuffle(12089).batch(batch_size)
+    # Shuffle & batch dataset
+    batched_dataset = training_dataset.shuffle(shuffle_buffer).batch(batch_size)
     
     # Create Iterator
     iterator = batched_dataset.make_initializable_iterator()
@@ -196,20 +197,57 @@ def train_input_fn():
     return features_dict, labels
 
 
+# Input pipeline of Estimator for EVAL mode
+def eval_input_fn():
+
+    # Load evaluation data
+    df = pd.read_csv('/home/gryphonlab/Ioannis/Works/IEMOCAP/Core/evaluation_data.csv')
+    # Faces for evaluation (numpy array, dtype=string)
+    eval_faces = np.array(df['eval_faces'])
+    # Spectrograms for evaluation (numpy array, dtype=string)
+    eval_spectrograms = np.array(df['eval_spectrograms'])
+    # Labels for evaluation (numpy array, dtype=int32)
+    eval_labels = np.array(df['eval_labels']).astype(np.int32)
+
+    # Create tensorflow Dataset unit
+    evaluation_dataset = tf.data.Dataset.from_tensor_slices((eval_faces, eval_spectrograms, eval_labels))
+    # Transpose Dataset using map-function
+    evaluation_dataset = evaluation_dataset.repeat(1).map(_parse_function)
+    # Shuffle & batch dataset (Dataset/36)
+    batched_dataset = evaluation_dataset.shuffle(shuffle_buffer).batch(batch_size)
+
+    # Create Iterator
+    iterator = batched_dataset.make_initializable_iterator()
+    tf.add_to_collection(tf.GraphKeys.TABLE_INITIALIZERS, iterator.initializer)
+    faces, spectrograms, labels = iterator.get_next()
+
+    # Create dictionary of features including images & spectrograms
+    features_dict = { 'faces': faces, 'spectrograms': spectrograms }
+
+    return features_dict, labels
+
+
 ############################# MAIN #############################
 
 
 def main(unused_argv): 
     
-    
+    # Control checkpoints
+    run_config = tf.estimator.RunConfig( save_checkpoints_secs=300, keep_checkpoint_max=3 )
     # Create the Estimator
-    multi_cnn_classifier = tf.estimator.Estimator( model_fn=multiCNN_model, model_dir=multiCNN_dir )
+    multi_cnn_classifier = tf.estimator.Estimator( model_fn=multiCNN_model, model_dir=multiCNN_dir, config=run_config )
     # Set up logging for predictions
     tensors_to_log = { 'probabilities': 'softmax_tensor' }
     logging_hook = tf.train.LoggingTensorHook( tensors=tensors_to_log, every_n_iter=50 )
     
+    # Set Specs for TRAIN and EVAL modes
+    train_spec =  tf.estimator.TrainSpec( input_fn=train_input_fn, hooks=[logging_hook] )
+    eval_spec = tf.estimator.EvalSpec( input_fn=eval_input_fn )
+    # Run TRAIN and EVAL modes
+    tf.estimator.train_and_evaluate( multi_cnn_classifier, train_spec, eval_spec )
+    
     # TRAIN the model
-    multi_cnn_classifier.train( input_fn=train_input_fn, steps=20000, hooks=[logging_hook])
+    #multi_cnn_classifier.train( input_fn=train_input_fn, steps=20000, hooks=[logging_hook])
 
     # EVAL the model
     #eval_input_fn = tf.estimator.inputs.numpy_input_fn(
