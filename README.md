@@ -1,7 +1,7 @@
 # iemocap_preprocess
 Multimodal preprocessing on IEMOCAP dataset
 
-# Upload_3 08.05.18
+# Upload_3: 08.05.18
 
 - multiCNN.py
 
