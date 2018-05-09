@@ -1,34 +1,12 @@
 # iemocap_preprocess
 Multimodal preprocessing on IEMOCAP dataset
 
-# Upload_3: 08.05.18
-
-- multiCNN.py
-
-    Added: EVAL mode (DOESN'T TERMINATE!)
-
 # Upload_2: 07.05.18
-
-- extractionmapCreator.py
-
-    UNCHANGED
-    
-- extractSpectrogram.py
-
-    UNCHANGED
-  
-- extractFace.py
-
-    UNCHANGED
     
 - createInputs.py
     
     Produce training_data.csv, evaluation_data.csv and prediction_data.csv
-    input maps for multiCNN
-    
-- multiCNN.py
-
-    Includes: data import methods, multiCNN model, TRAIN method, model save
+    input maps for model
 
 # Upload_1: 19.04.18
 
